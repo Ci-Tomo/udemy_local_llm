@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.ipynb_checkpoints/
+*.egg-info/
+build/
+dist/
+
+# Models / data
+*.gguf
+*.bin
+*.safetensors
+models/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
