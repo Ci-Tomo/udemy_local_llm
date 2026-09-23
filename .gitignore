@@ -1,6 +1,7 @@
 # Python
 __pycache__/
 myvenv/
+chroma_db/
 *.py[cod]
 .venv/
 venv/

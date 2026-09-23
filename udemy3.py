@@ -9,12 +9,9 @@ import uuid
 DB_DIR = "./chroma_db"
 chroma_client = chromadb.PersistentClient(path=DB_DIR)
 
-if "collection" not in st.session_state:
-    st.session_state.collection = chroma_client.get_or_create_collection(
-        name="locla_docs"
-    )
-else:
-    st.session_state.collection = chroma_client.get_collection(name="locla_docs")
+st.session_state.collection = chroma_client.get_or_create_collection(
+    name="locla_docs"
+)
 
 
 # ollamaからインストールしたモデルを使ったベクトル化関数
@@ -25,7 +22,6 @@ def ollama_embed(text):
     )
 
     data = response.json()
-    print(data)
     return data["embedding"]
 
 
@@ -72,14 +68,18 @@ if st.sidebar.button("インデックスを作成"):
         for file in uploaded_files:
             text = load_word_document(file)
             chunks = split_text(text)
-            for chunk in chunks:
+            for i, chunk in enumerate(chunks):
                 embedding = ollama_embed(chunk)
-                st.session_state.collection.add(
+                # ファイル名+連番の決まったIDにすることで、
+                # 同じファイルを再インデックスしても重複せず上書きされる
+                st.session_state.collection.upsert(
                     documents=[chunk],
                     embeddings=[embedding],
-                    ids=[str(uuid.uuid4())],
+                    ids=[f"{file.name}_{i}"],
+                    metadatas=[{"file_name": file.name}],
                 )
             st.sidebar.success(f"ドキュメント{file.name}をインデックスに追加しました")
+        st.sidebar.success(f"{len(uploaded_files)}件のドキュメントのインデックス作成が完了しました")
 
 # title
 st.title("Local LLM Chat")
@@ -109,8 +109,29 @@ if prompt:
     with st.chat_message("user"):
         st.write(prompt)
 
+    # RAG検索
+    query_embed = ollama_embed(prompt)
+    results = st.session_state.collection.query(
+        query_embeddings=[query_embed],
+        n_results=3,
+    )
+
+    if results["documents"] and results["documents"][0]:
+        context_text = "\n".join(results["documents"][0])
+        rag_prompt = f"""
+以下は関連ドキュメントの抜粋です。
+        {context_text}
+この情報を参考に以下の質問に答えてください。
+        {prompt}
+        """
+        final_user_prompt = rag_prompt
+    else:
+        final_user_prompt = prompt
+
     # 送信用のメッセージ(履歴は変更せず、新しいリストを作る)
-    messages = st.session_state.messages + [{"role": "user", "content": prompt}]
+    messages = st.session_state.messages + [
+        {"role": "user", "content": final_user_prompt}
+    ]
     if system_prompt.strip():
         messages = [{"role": "system", "content": system_prompt}] + messages
 
