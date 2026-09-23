@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+myvenv/
 *.py[cod]
 .venv/
 venv/
