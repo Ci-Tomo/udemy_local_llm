@@ -9,9 +9,7 @@ import uuid
 DB_DIR = "./chroma_db"
 chroma_client = chromadb.PersistentClient(path=DB_DIR)
 
-st.session_state.collection = chroma_client.get_or_create_collection(
-    name="locla_docs"
-)
+st.session_state.collection = chroma_client.get_or_create_collection(name="locla_docs")
 
 
 # ollamaからインストールしたモデルを使ったベクトル化関数
@@ -37,10 +35,11 @@ def split_text(text):
     chunks = []
     start = 0
     while start < len(text):
-        end = start + chunk_size
-        if end > len(text):
-            end = len(text)
+        print("進捗：", start / len(text))
+        end = min(start + chunk_size, len(text))
         chunks.append(text[start:end])
+        if end == len(text):
+            break
         start = end - overlap
     return chunks
 
@@ -68,6 +67,7 @@ if st.sidebar.button("インデックスを作成"):
         for file in uploaded_files:
             text = load_word_document(file)
             chunks = split_text(text)
+            print(chunks)
             for i, chunk in enumerate(chunks):
                 embedding = ollama_embed(chunk)
                 # ファイル名+連番の決まったIDにすることで、
@@ -79,7 +79,9 @@ if st.sidebar.button("インデックスを作成"):
                     metadatas=[{"file_name": file.name}],
                 )
             st.sidebar.success(f"ドキュメント{file.name}をインデックスに追加しました")
-        st.sidebar.success(f"{len(uploaded_files)}件のドキュメントのインデックス作成が完了しました")
+        st.sidebar.success(
+            f"{len(uploaded_files)}件のドキュメントのインデックス作成が完了しました"
+        )
 
 # title
 st.title("Local LLM Chat")
